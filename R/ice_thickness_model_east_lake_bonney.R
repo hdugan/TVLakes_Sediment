@@ -145,7 +145,7 @@ shortwave_radiation <- shortwave_radiation_initial |>
   filter(swradin_wm2 > 0)
 
 
-###################### OUTGOING (UPWELLING) LONGWAVE RADIATION ######################
+###################### OUTGOING (UPWELLING) LONGWAVE RADIATION DATA ######################
 # select outgoing longwave radiation data from  Bonney Lake Glacier Met 
 outgoing_longwave_radiation_initial <- COHM |> 
   dplyr::select(metlocid, date_time, lwradout2_wm2) |> 
@@ -167,7 +167,7 @@ outgoing_longwave_radiation <- outgoing_longwave_radiation_initial |>
   mutate(lwradout2_wm2 = ifelse(is.na(lwradout2_wm2), mean_lwout2, lwradout2_wm2))  # Fill missing value
 
 
-############# INCOMING (DOWNWELLING) LONGWAVE RADIATION ######################
+############# INCOMING (DOWNWELLING) LONGWAVE RADIATION DATA ######################
 # select incoming longwave radiation data from Commonwealth Glacier Met
 incoming_longwave_radiation_initial <- COHM |> 
   dplyr::select(metlocid, date_time, lwradin2_wm2, lwradin_wm2)
@@ -200,34 +200,34 @@ annual_mean_incoming_longwave <- COHM |>
   summarize(mean_lwin = mean(lwradin_wm2, na.rm = T), 
             mean_lwin2 = mean(lwradin2_wm2, na.rm = T))
 
-#comparison of LW outputs ( i think we want to use the lwradin2)
-ggplot(annual_mean_incoming_longwave, aes(x = yday)) + 
-  geom_path(aes(y = mean_lwin), color = "red") + 
-  geom_path(aes(y = mean_lwin2), color = "blue") + 
-  theme_linedraw(base_size = 20)
-
-# looks pretty good. need to fill in the na values with these (can probably do this by yday)
-
 #join to fill gaps
 incoming_longwave_radiation <- incoming_longwave_radiation_initial |> 
   left_join(annual_mean_incoming_longwave) |>    # Join on date_time
   mutate(lwradin2_wm2 = ifelse(is.na(lwradin2_wm2), mean_lwin2, lwradin2_wm2)) |>   # Fill missing values
   dplyr::select(-c(mean_lwin2, mean_lwin))   # Remove extra column 
 
-ggplot(incoming_longwave_radiation, aes(date_time, lwradin2_wm2)) + 
-  geom_line() + 
-  theme_linedraw()
 
-# select air pressure data from Lake Hoare Met
+###################### AIR PRESSURE DATA ######################
+# Air pressure is collected at Lake Hoare Meteorological Station
 air_pressure = HOEM |> 
   mutate(bpress_Pa = bpress_mb*100) |>  # air pressure was initially in mbar, needs to be in Pascal. 
   dplyr::select(metlocid, date_time, bpress_Pa)
 
-# select wind speed data from Lake Bonney Met
+
+###################### WIND SPEED DATA ######################
 wind_speed = BOYM |> 
   dplyr::select(metlocid, date_time, wspd_ms) |>  # wind speed is in meters per second
   mutate(wspd_ms = ifelse(is.na(wspd_ms), TARM$wspd_ms, wspd_ms)) # fill in lost wind values from TARM, next nearest met station
 
+
+###################### RELATIVE HUMIDITY DATA ######################
+# load relative humidity data
+relative_humidity <- BOYM |> 
+  dplyr::select(metlocid, date_time, rhh2o_3m_pct, rhice_3m_pct) |> 
+  mutate(rhh2o_3m_pct = ifelse(is.na(rhh2o_3m_pct), TARM$rhh2o_3m_pct, rhh2o_3m_pct))
+
+
+###################### ICE THICKNESS DATA ######################
 # load ice thickness data and manipulate for easier plotting
 ice_thickness <- read_csv("data/lake ice/mcmlter-lake-ice_thickness-20250218_0_2025.csv") |>
   mutate(date_time = mdy_hm(date_time), 
@@ -236,6 +236,7 @@ ice_thickness <- read_csv("data/lake ice/mcmlter-lake-ice_thickness-20250218_0_2
   filter(date_time > "2016-12-01" & date_time < "2025-02-01")
 
 
+###################### ALBEDO DATA ######################
 # Load and prepare the data
 albedo_orig <- read_csv("data/sediment abundance data/LANDSAT_sediment_abundances_20250403.csv") |>  
   mutate(sediment = sediment_abundance) |> 
@@ -256,12 +257,6 @@ albedo1 <- time_15min |>
   arrange(time) |> 
   fill(ice_abundance, .direction = "down")
 
-
-
-# load relative humidity data
-relative_humidity <- BOYM |> 
-  dplyr::select(metlocid, date_time, rhh2o_3m_pct, rhice_3m_pct) |> 
-  mutate(rhh2o_3m_pct = ifelse(is.na(rhh2o_3m_pct), TARM$rhh2o_3m_pct, rhh2o_3m_pct))
 
 ###################### Interpolate Data to match model time steps ######################
 #time_model = start_time + seq(0, by = dt* 86400, length.out = nt)  # Convert dt from days to seconds
@@ -343,28 +338,26 @@ if (length(airt_interp) != length(time_model) |
   stop("Length of interpolated data does not match the model time steps!")
 }
 
-#alb_altered = 0.1402 + ((albedo_interp)*0.95)
 
 ###################### Create the time series tibble for model time ######################
 time_series <- tibble(
-  time = time_model,                        # Model time steps
-  T_air = airt_interp,                      # Interpolated air temperature Kelvin
-  SW_in = sw_interp,                        # Interpolated shortwave radiation w/m2
-  LWR_in = LWR_in_interp,                   # Interpolated incoming longwave radiation w/m2
-  LWR_out = LWR_out_interp,                 # Interpolated outgoing longwave radiation w/m2
+  time = time_model,                           # Model time steps
+  T_air = airt_interp,                         # Interpolated air temperature Kelvin
+  SW_in = sw_interp,                           # Interpolated shortwave radiation w/m2
+  LWR_in = LWR_in_interp,                      # Interpolated incoming longwave radiation w/m2
+  LWR_out = LWR_out_interp,                    # Interpolated outgoing longwave radiation w/m2
   albedo = (0.14 + ((albedo_interp)*0.6959)),  # albedo, unitless (lower albedo value from measured BOYM data)
-  pressure = pressure_interp,               # Interpolated air pressure, Pa
-  wind = wind_interp,                       # interpolated wind speed, m/s
-  delta_T = T_air - lag(T_air),             # difference in air temperature, for later flux calculation
+  pressure = pressure_interp,                  # Interpolated air pressure, Pa
+  wind = wind_interp,                          # interpolated wind speed, m/s
+  delta_T = T_air - lag(T_air),                # difference in air temperature, for later flux calculation
   relative_humidity = relative_humidity_interp # relative humidity
 ) |> 
   drop_na(delta_T) # removes the first row where the difference in temperatures yields NA
 
-# plot all input data together to do a visual check
+###################### PLOT INPUT DATA ######################
 series <- time_series |> 
   pivot_longer(cols = c(T_air, SW_in, LWR_in, LWR_out, pressure, albedo, relative_humidity, wind), 
-               names_to = "variable", values_to = "data") |> 
-  filter(variable == "albedo")
+               names_to = "variable", values_to = "data")
 
 ggplot(series, aes(time, data)) + 
   geom_line(size = 1.5) + 
@@ -372,18 +365,12 @@ ggplot(series, aes(time, data)) +
   #facet_wrap(vars(variable), scales = "free") + 
   theme_linedraw(base_size = 28)
 
-
-
 setwd("~/Documents/R-Repositories/MCM-LTER-MS")
 ggsave(filename = "plots/manuscript/chapter 2/albedo_model_input_data_20250414.png", 
        width = 12, height = 8, dpi = 500)
 
-###NOTES: The longwave estimations are still a mess. The SW gap fills looks pretty good to me, although there's 
-# pretty bad fit in 2023-2024. 
-# Model output goes to crap when the Longwave data estimates start. Need to sort that out
 
-############### MODEL BEGINS ###########
-
+###################### MODEL BEGINS ######################
 n_iterations <- nt
 
 # Initialize results tibble
@@ -404,14 +391,15 @@ prevT <- seq(from = time_series$T_air[1], to = 273.15, length.out = length(depth
 dL_bottom.vec = NA # store these values for troubleshooting
 dL_surface.vec = NA # store these values for troubleshooting
 
-# lastly, add a progress bar because this stuff takes forever
+
+# add a progress bar because this stuff takes forever
 pb <- progress_bar$new(
   format = "[:bar] :percent :elapsed | ETA: :eta",
   total = nrow(time_series), # Total iterations
   clear = FALSE
 )
 
-
+# add steps to save the individual flux values
 ###################### Simulation loop ######################
 for (t_idx in 1:nrow(time_series)) {
   
