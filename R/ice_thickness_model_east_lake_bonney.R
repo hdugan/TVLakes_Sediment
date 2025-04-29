@@ -17,8 +17,7 @@
 library(tidyverse)
 library(lubridate)
 library(progress)
-# for sun angle estimates
-library(suncalc)
+library(suncalc) # for sun angle estimates
 
 
 #set working directory
@@ -45,7 +44,7 @@ TARM <- read_csv("~/Google Drive/My Drive/MCMLTER_Met/met stations/mcmlter-clim_
   mutate(airtemp_3m_K = airtemp_3m_degc + 273.15)
 
 ###################### Define Parameters ######################
-L_initial <- 3.88       # Initial ice thickness (m) Ice thickness at 12/17/2015 ice to ice
+L_initial <- 3.88       # Initial ice thickness (m) Ice thickness at 12/17/2016 ice to ice
 dx <- 0.10              # Spatial step size (m)
 nx = L_initial/dx       # Number of spatial steps
 dt <-  1/24             # Time step for stability (in days)
@@ -78,32 +77,20 @@ if (r > 0.5) stop("r > 0.5, solution may be unstable. Reduce dt or dx.")
 
 ###################### Separate data out into input parameters ######################
 #preemptively set working directory back 
-setwd("~/Documents/R-Repositories/MCM-LTER-MS")
+setwd("~/Documents/R-Repositories/TVLakes_Sediment")
 
 # select air temperature data from Lake Bonney Met, and gapfill holes with Lake Hoare
 # this step is mainly to gather a time series for gap filling other portions of the script. Air temperature data is sourced 
 # the East Lake Bonney Permanent Monitoring Station (ELBBB)
 
-#FLAG
-orig_air_temperature <- BOYM |> 
-  mutate(airtemp_3m_degc = ifelse(is.na(airtemp_3m_degc), HOEM$airtemp_3m_degc, airtemp_3m_degc)) |> 
-  mutate(airtemp_3m_K = airtemp_3m_degc + 273.15) |> 
-  dplyr::select(c(metlocid, date_time, airtemp_3m_K)) 
-
-# Define the start time based on the input data
-start_time <- min(orig_air_temperature$date_time)
-
-# Generate model time steps (POSIXct format)
-time_model <- start_time + seq(0, by = dt * 86400, length.out = nt)  # Convert dt from days to seconds
-
 ###################### AIR TEMPERATURE DATA ######################
 ## load air temperature data from East Lake Bonney Lake Monitoring Station (unpublished data)
-air_temperature <- read_csv("data/thermal diffusion model data/ice surface temp/air_temp_ELBBB.csv") |> 
+air_temperature <- read_csv("Data/ice_thickness_model_input_data/air_temp_ELBBB.csv") |> 
   mutate(date_time = mdy_hm(date_time), 
          airtemp_3m_K = surface_temp_C + 273.15)
 
 # load air temperature data from the West Lake Bonney Lake Monitoring Station, to fill gaps in the ELBBB record
-wlbbb_airtemp <- read_csv('data/thermal diffusion model data/ice surface temp/air_temp_WLBBB.csv') |> 
+wlbbb_airtemp <- read_csv('Data/ice_thickness_model_input_data/air_temp_WLBBB.csv') |> 
   mutate(date_time = mdy_hm(date_time), 
          airtemp_3m_K = surface_temp_C + 273.15) |> 
   filter(date_time < "2023-11-01 00:00:00")
@@ -229,7 +216,7 @@ relative_humidity <- BOYM |>
 
 ###################### ICE THICKNESS DATA ######################
 # load ice thickness data and manipulate for easier plotting
-ice_thickness <- read_csv("data/lake ice/mcmlter-lake-ice_thickness-20250218_0_2025.csv") |>
+ice_thickness <- read_csv("Data/ice_thickness_model_input_data/mcmlter-lake-ice_thickness-20250218_0_2025.csv") |>
   mutate(date_time = mdy_hm(date_time), 
          z_water_m = z_water_m*-1) |> 
   filter(location_name == "East Lake Bonney") |> 
@@ -238,7 +225,7 @@ ice_thickness <- read_csv("data/lake ice/mcmlter-lake-ice_thickness-20250218_0_2
 
 ###################### ALBEDO DATA ######################
 # Load and prepare the data
-albedo_orig <- read_csv("data/sediment abundance data/LANDSAT_sediment_abundances_20250403.csv") |>  
+albedo_orig <- read_csv("Data/ice_thickness_model_input_data/LANDSAT_sediment_abundances_20250403.csv") |>  
   mutate(sediment = sediment_abundance) |> 
   filter(lake == "East Lake Bonney") |> 
   mutate(date = ymd(date),  # or ymd() if no time data is present, adjust as needed
@@ -260,6 +247,10 @@ albedo1 <- time_15min |>
 
 ###################### Interpolate Data to match model time steps ######################
 #time_model = start_time + seq(0, by = dt* 86400, length.out = nt)  # Convert dt from days to seconds
+start_time <- min(BOYM$date_time)
+
+# Generate model time steps (POSIXct format)
+time_model <- start_time + seq(0, by = dt * 86400, length.out = nt)  # Convert dt from days to seconds
 
 #Interpolate air temperature to match the model time steps
 airt_interp <- approx(
@@ -361,8 +352,8 @@ series <- time_series |>
 
 ggplot(series, aes(time, data)) + 
   geom_line(size = 1.5) + 
-  xlab("Date") + ylab("Albedo (unitless)") +
-  #facet_wrap(vars(variable), scales = "free") + 
+  xlab("Date") + ylab("Input Data") +
+  facet_wrap(vars(variable), scales = "free") + 
   theme_linedraw(base_size = 28)
 
 setwd("~/Documents/R-Repositories/MCM-LTER-MS")
