@@ -1,24 +1,31 @@
-###### thermal diffusion model ########
+###### Ice Thickness Model ########
 
 ### Authors
 # Charlie Dougherty
 # April 29, 2025
 
+
 # NOTES
 # This script models ice thickness at an adjustable vertical depth and timestep through time at East Lake Bonney, Taylor Valley, Antarctica
-# 
+# Ice thickness is modeled by solving the heat equation in the vertical axis iteratively, and correcting for surface mass loss by modeling different
+# surface fluxes.
+# Data is provided primarily by the McMurdo Dry Valleys Long Term Ecological Research project, with albedo surface estimates coming from 
+# derived surface sediment maps over the McMurdo Dry Valleys Lakes using Landsat 8 data. 
 
 
 # Load necessary libraries
 library(tidyverse)
 library(lubridate)
 library(progress)
+# for sun angle estimates
 library(suncalc)
+
 
 #set working directory
 setwd("~charliedougherty")
 
-###################### Load Time Series Data by Station######################
+
+###################### Load Time Series Data by Station ######################
 BOYM <- read_csv("~/Google Drive/My Drive/MCMLTER_Met/met stations/mcmlter-clim_boym_15min-20250205.csv") |> 
   mutate(date_time = ymd_hms(date_time)) |> 
   filter(date_time > '2016-12-21 00:00:00')
@@ -50,29 +57,34 @@ Ma = 28.97              # Molecular Weight of Air kg/mol
 Ca = 1.004              # Specific heat capacity of air J/g*K
 Ch = 1.75e-3            # bulk transfer coefficient as defined in 1979 Parkinson and Washington
 Ce = 1.75e-3            # bulk transfer coefficient as defined in 1979 Parkinson and Washington
+
 epsilon = 0.97          # surface emissivity (for estimating LW if we ever get there)
 S = 1367                # solar constant W m^-2
 Tf = 273.16             # Temperature of water freezing (K)
 xLv = 2.500e6           # Latent Heat of Evaporation (J/kg)
 xLf = 3.34e5            # Latent Heat of Fusion (J/kg)
-xLs = xLv + xLf         # Latent Heat of Sublimation
-chi = 0.45
 
+xLs = xLv + xLf         # Latent Heat of Sublimation
 k <- 2.3                # Thermal conductivity of ice (W/m/K)
 rho <- 917              # Density of ice (kg/m^3)
 c <- 2100               # Specific heat capacity of ice (J/kg/K)
 alpha <- k / (rho * c)  # Thermal diffusivity (m^2/s)
 L_f <- 3.65e5           # Latent heat of fusion for ice (J/kg)
 
+
 # Stability check: Ensure R < 0.5 for stability
 r <- alpha * (dt * 86400) / dx^2  # dt is in days, so multiply by 86400 to convert to seconds
 if (r > 0.5) stop("r > 0.5, solution may be unstable. Reduce dt or dx.")
 
-############## Separate data out into input parameters #############
+###################### Separate data out into input parameters ######################
 #preemptively set working directory back 
 setwd("~/Documents/R-Repositories/MCM-LTER-MS")
 
-# select air temperature data from Lake Bonney Met
+# select air temperature data from Lake Bonney Met, and gapfill holes with Lake Hoare
+# this step is mainly to gather a time series for gap filling other portions of the script. Air temperature data is sourced 
+# the East Lake Bonney Permanent Monitoring Station (ELBBB)
+
+#FLAG
 orig_air_temperature <- BOYM |> 
   mutate(airtemp_3m_degc = ifelse(is.na(airtemp_3m_degc), HOEM$airtemp_3m_degc, airtemp_3m_degc)) |> 
   mutate(airtemp_3m_K = airtemp_3m_degc + 273.15) |> 
@@ -84,24 +96,17 @@ start_time <- min(orig_air_temperature$date_time)
 # Generate model time steps (POSIXct format)
 time_model <- start_time + seq(0, by = dt * 86400, length.out = nt)  # Convert dt from days to seconds
 
-## alternative option for air temperature, air temperature at the blue box
+###################### AIR TEMPERATURE DATA ######################
+## load air temperature data from East Lake Bonney Lake Monitoring Station (unpublished data)
 air_temperature <- read_csv("data/thermal diffusion model data/ice surface temp/air_temp_ELBBB.csv") |> 
   mutate(date_time = mdy_hm(date_time), 
          airtemp_3m_K = surface_temp_C + 273.15)
 
+# load air temperature data from the West Lake Bonney Lake Monitoring Station, to fill gaps in the ELBBB record
 wlbbb_airtemp <- read_csv('data/thermal diffusion model data/ice surface temp/air_temp_WLBBB.csv') |> 
   mutate(date_time = mdy_hm(date_time), 
          airtemp_3m_K = surface_temp_C + 273.15) |> 
   filter(date_time < "2023-11-01 00:00:00")
-
-#ggplot(air_temperature, aes(date_time, airtemp_3m_K)) + 
-#  geom_path()
-
-#ggplot(wlbbb_airtemp, aes(date_time, airtemp_3m_K)) + 
-#  geom_path()
-
-#ggplot(air_temperature, aes(date_time, airtemp_3m_K)) + 
-#  geom_line()
 
 # Define the full sequence of timestamps at 15-minute intervals
 full_timestamps <- data.frame(date_time = seq(from = min(air_temperature$date_time), 
@@ -112,19 +117,16 @@ full_timestamps <- data.frame(date_time = seq(from = min(air_temperature$date_ti
 air_temp_gaps <- full_timestamps |> 
   left_join(air_temperature, by = "date_time")
 
+# fill gaps in record at East Lake Bonney with data from West Lake Bonney
 air_temperature <- air_temp_gaps |> 
   mutate(airtemp_3m_K = ifelse(is.na(airtemp_3m_K), wlbbb_airtemp$airtemp_3m_K, airtemp_3m_K))
 
-
-# select incoming shortwave radiation data from Lake Bonney Met and fill gaps
-# this shortwave object has gaps in the data. Fill the gaps with computed values
+###################### SHORTWAVE RADIATION DATA ######################
+# select incoming shortwave radiation data from Lake Bonney Met and fill gaps. Gaps are first filled with data from the 
+# next nearest station (Taylor Glacier Met), but failing that, an empirical equation defined in Obryk et al, 2016 is used. 
 shortwave_radiation_initial <- BOYM |> 
   dplyr::select(metlocid, date_time, swradin_wm2) |> 
   mutate(swradin_wm2 = ifelse(is.na(swradin_wm2), TARM$swradin_wm2, swradin_wm2)) # replace empty shortwave data with TARM, nearest met station
-
-
-ggplot(shortwave_radiation_initial, aes(date_time, swradin_wm2)) + 
-  geom_path()
 
 # create an artificial shortwave object
 # Coordinates of East Lobe Bonney Blue Box
@@ -134,8 +136,7 @@ longitude <- 162.449716
 artificial_shortwave <- tibble(
   date_time = time_model, 
   zenith = 90 - getSunlightPosition(time_model, lat = latitude, lon = longitude)$altitude, #convert to zenith by subtracting the altitude from 90 degrees. 
-  sw = S*cos(zenith)*3.0)
-
+  sw = S*cos(zenith)*3.0) # multiplied by 3 to make data better match historical mean.
 
 shortwave_radiation <- shortwave_radiation_initial |> 
   left_join(artificial_shortwave, by = "date_time") |>    # Join on date_time
@@ -144,17 +145,12 @@ shortwave_radiation <- shortwave_radiation_initial |>
   filter(swradin_wm2 > 0)
 
 
-############### OUTGOING (UPWELLING) LONGWAVE RADIATION
+###################### OUTGOING (UPWELLING) LONGWAVE RADIATION ######################
 # select outgoing longwave radiation data from  Bonney Lake Glacier Met 
 outgoing_longwave_radiation_initial <- COHM |> 
   dplyr::select(metlocid, date_time, lwradout2_wm2) |> 
   mutate(yday = yday(date_time), 
          hour = hour(date_time))
-
-#artificial_longwave_out <- air_temperature |> 
-#  dplyr::select(date_time, airtemp_3m_K) |> 
-#  mutate(lwout = (epsilon*sigma*(airtemp_3m_K^4))*0.92)
-
 
 annual_mean_outgoing_longwave <- COHM |> 
   dplyr::select(metlocid, date_time, lwradout_wm2, lwradout2_wm2) |> 
@@ -166,18 +162,12 @@ annual_mean_outgoing_longwave <- COHM |>
   summarize(mean_lwout = mean(lwradout_wm2, na.rm = T), 
             mean_lwout2 = mean(lwradout2_wm2, na.rm = T))
 
-#comparison of LW outputs ( i think we want to use the lwradin2)
-ggplot(annual_mean_outgoing_longwave, aes(x = yday)) + 
-  geom_path(aes(y = mean_lwout), color = "red") + 
-  geom_path(aes(y = mean_lwout2), color = "blue") + 
-  theme_linedraw(base_size = 20)
-
 outgoing_longwave_radiation <- outgoing_longwave_radiation_initial |> 
   left_join(annual_mean_outgoing_longwave) |>    # Join on date_time
   mutate(lwradout2_wm2 = ifelse(is.na(lwradout2_wm2), mean_lwout2, lwradout2_wm2))  # Fill missing value
 
 
-############# ################### INCOMING (DOWNWELLING) LONGWAVE RADIATION 
+############# INCOMING (DOWNWELLING) LONGWAVE RADIATION ######################
 # select incoming longwave radiation data from Commonwealth Glacier Met
 incoming_longwave_radiation_initial <- COHM |> 
   dplyr::select(metlocid, date_time, lwradin2_wm2, lwradin_wm2)
