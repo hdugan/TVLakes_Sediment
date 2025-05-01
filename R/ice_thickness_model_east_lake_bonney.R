@@ -220,7 +220,7 @@ ice_thickness <- read_csv("Data/ice_thickness_model_input_data/mcmlter-lake-ice_
   mutate(date_time = mdy_hm(date_time), 
          z_water_m = z_water_m*-1) |> 
   filter(location_name == "East Lake Bonney") |> 
-  filter(date_time > "2016-12-01" & date_time < "2025-02-01")
+  filter(date_time > "2016-12-01" & date_time < "2024-02-01")
 
 
 ###################### ALBEDO DATA ######################
@@ -354,11 +354,11 @@ ggplot(series, aes(time, data)) +
   geom_line(size = 1.5) + 
   xlab("Date") + ylab("Input Data") +
   facet_wrap(vars(variable), scales = "free") + 
-  theme_linedraw(base_size = 28)
+  theme_linedraw(base_size = 15)
 
-setwd("~/Documents/R-Repositories/MCM-LTER-MS")
-ggsave(filename = "plots/manuscript/chapter 2/albedo_model_input_data_20250414.png", 
-       width = 12, height = 8, dpi = 500)
+#setwd("~/Documents/R-Repositories/MCM-LTER-MS")
+#ggsave(filename = "plots/manuscript/chapter 2/albedo_model_input_data_20250414.png", 
+#       width = 12, height = 8, dpi = 500)
 
 
 ###################### MODEL BEGINS ######################
@@ -370,7 +370,12 @@ results <- tibble(
   depth = numeric(n_iterations),             # Initialize `depth` as numeric
   temperature = numeric(n_iterations),       # Initialize `temperature` as numeric
   thickness = numeric(n_iterations),         # Initialize `thickness` as numeric
-  LW_net = numeric(n_iterations), 
+  LW_net = numeric(n_iterations),            # Net Longwave flux
+  SW = numeric(n_iterations),                # Shortwave Radiation Flux
+  sensible_Q = numeric(n_iterations), 
+  latent_Q = numeric(n_iterations), 
+  conductive_Q = numeric(n_iterations),
+  surface_heat_flux = numeric(n_iterations),
   Iteration = numeric(n_iterations)          # Initialize `Iteration` as numeric
 )
 
@@ -400,6 +405,11 @@ for (t_idx in 1:nrow(time_series)) {
   results$temperature[t_idx] <- prevT
   results$thickness[t_idx] <- prevL
   results$LW_net[t_idx] <- LW_net
+  results$SW[t_idx] <- SW_abs
+  results$sensible_Q <- Qh
+  results$latent_Q <- Ql
+  results$conductive_Q <- Qc
+  results$surface_heat_flux <- surface_flux
   results$Iteration[t_idx] <- t_idx  
   
   #ice thickness
@@ -454,7 +464,7 @@ for (t_idx in 1:nrow(time_series)) {
     ea = ((rh/100)* A * exp((B * (T_air - Tf))/(C + (T_air - Tf))))/100
     
     # compute the density of air slightly conflicts with what we have above
-    rho_air = press * Ma/(R * T_air) * (1 + (epsilon - 1) * (ea/press))
+    #rho_air = press * Ma/(R * T_air) * (1 + (epsilon - 1) * (ea/press))
     
     # Water vapor pressure at the surface assuming surface is the 
     # below freezing
@@ -481,8 +491,10 @@ for (t_idx in 1:nrow(time_series)) {
     Ql = rho_air*(xLatent)*Ce*(0.622/press)*(ea - es0)*wind
   }
   
+  Qc = (k * (prevT[1] - T_air) / dx)
+  
   # Surface heat flux (absorbed shortwave, net longwave, conductive heat flux, sensible heat flux, and latent heat flux)
-  surface_flux <- SW_abs + (LW_net - (k * (prevT[1] - T_air) / dx)) + Qh + Ql 
+  surface_flux <- SW_abs + (LW_net - Qc) + Qh + Ql 
   
   # Calculate melting at the surface (and ablation)
   if (!is.na(surface_flux) && surface_flux > 0) {
@@ -533,26 +545,16 @@ results |>
   geom_point(data = ice_thickness, aes(x = date_time, y = z_water_m)) + 
   theme_linedraw(base_size = 20)
 
-ggsave(filename = "plots/manuscript/chapter 2/ice_thickness_20250414.png", width = 9, height = 6, dpi = 300)
-
-
 #troubleshooting plots, to find distance of change at top and bottom
 plot(dL_bottom.vec)
 plot(dL_surface.vec)
 
-# Plot of input ice data
-ggplot(series, aes(time, data)) + 
-  geom_line() + 
-  xlab("Date") + ylab("Value") +
-  facet_wrap(vars(variable), scales = "free") + 
-  theme_linedraw(base_size = 20)
 
-#save input data plot
-ggsave(filename = "plots/manuscript/chapter 2/model_input_data_20250406.png", 
-       height = 8, width = 12, dpi = 300)
+results_longer = results |> 
+  pivot_longer(cols = c(LW_net, SW, sensible_Q, latent_Q, surface_heat_flux), 
+               values_to = "flux_value", names_to = "flux_parameter")
 
-# save output to model outputs file, interrogation in different script
-write_csv(results, "data/thermal diffusion model data/model_outputs/GEE_output_corrected_20250406.csv")
-
+ggplot(results_longer, aes(time, flux_value, color = flux_parameter)) + 
+  geom_path()
 
 
