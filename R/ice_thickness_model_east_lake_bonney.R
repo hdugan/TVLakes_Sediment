@@ -25,6 +25,7 @@ setwd("~charliedougherty")
 
 
 ###################### Load Time Series Data by Station ######################
+# met station data can be found at the McMurdo Long Term Ecological Research website or on the Environmental Data Initiative
 BOYM <- read_csv("~/Google Drive/My Drive/MCMLTER_Met/met stations/mcmlter-clim_boym_15min-20250205.csv") |> 
   mutate(date_time = ymd_hms(date_time)) |> 
   filter(date_time > '2016-12-21 00:00:00')
@@ -68,7 +69,7 @@ k <- 2.3                # Thermal conductivity of ice (W/m/K)
 rho <- 917              # Density of ice (kg/m^3)
 c <- 2100               # Specific heat capacity of ice (J/kg/K)
 alpha <- k / (rho * c)  # Thermal diffusivity (m^2/s)
-L_f <- 3.65e5           # Latent heat of fusion for ice (J/kg)
+L_f <- xLf  
 
 
 # Stability check: Ensure R < 0.5 for stability
@@ -85,6 +86,14 @@ setwd("~/Documents/R-Repositories/TVLakes_Sediment")
 
 ###################### AIR TEMPERATURE DATA ######################
 ## load air temperature data from East Lake Bonney Lake Monitoring Station (unpublished data)
+
+#time_model = start_time + seq(0, by = dt* 86400, length.out = nt)  # Convert dt from days to seconds
+start_time <- min(BOYM$date_time)
+
+# Generate model time steps (POSIXct format)
+time_model <- start_time + seq(0, by = dt * 86400, length.out = nt)  # Convert dt from days to seconds
+
+
 air_temperature <- read_csv("Data/ice_thickness_model_input_data/air_temp_ELBBB.csv") |> 
   mutate(date_time = mdy_hm(date_time), 
          airtemp_3m_K = surface_temp_C + 273.15)
@@ -245,12 +254,7 @@ albedo1 <- time_15min |>
   fill(ice_abundance, .direction = "down")
 
 
-###################### Interpolate Data to match model time steps ######################
-#time_model = start_time + seq(0, by = dt* 86400, length.out = nt)  # Convert dt from days to seconds
-start_time <- min(BOYM$date_time)
-
-# Generate model time steps (POSIXct format)
-time_model <- start_time + seq(0, by = dt * 86400, length.out = nt)  # Convert dt from days to seconds
+###################### Interpolate Data to match model time steps #####################
 
 #Interpolate air temperature to match the model time steps
 airt_interp <- approx(
@@ -355,10 +359,6 @@ ggplot(series, aes(time, data)) +
   xlab("Date") + ylab("Input Data") +
   facet_wrap(vars(variable), scales = "free") + 
   theme_linedraw(base_size = 15)
-
-#setwd("~/Documents/R-Repositories/MCM-LTER-MS")
-#ggsave(filename = "plots/manuscript/chapter 2/albedo_model_input_data_20250414.png", 
-#       width = 12, height = 8, dpi = 500)
 
 
 ###################### MODEL BEGINS ######################
@@ -549,12 +549,76 @@ results |>
 plot(dL_bottom.vec)
 plot(dL_surface.vec)
 
+####### Comparing outputs ##########
+setwd("/Users/charliedougherty/Documents/R-Repositories/MCM-LTER-MS")
 
-results_longer = results |> 
-  pivot_longer(cols = c(LW_net, SW, sensible_Q, latent_Q, surface_heat_flux), 
-               values_to = "flux_value", names_to = "flux_parameter")
+# load file
+GEE_corrected <- results |> 
+  group_by(time) |> 
+  summarize(thickness = max(thickness)) |> 
+  mutate(time = ymd_hms(time)) |> 
+  filter(thickness > 0)
 
-ggplot(results_longer, aes(time, flux_value, color = flux_parameter)) + 
-  geom_path()
+summary(GEE_corrected$thickness)
+# ice thickness data
+ice_thick <- read_csv("data/lake ice/mcmlter-lake-ice_thickness-20250218_0.csv") |>
+  mutate(date_time = mdy_hm(date_time), 
+         z_water_m = z_water_m*-1) |> 
+  filter(location_name == "East Lake Bonney", 
+  ) |> 
+  filter(str_detect(string = location, pattern = "Inside")) |> 
+  filter(date_time > "2016-12-01" & date_time < "2025-02-01") |> 
+  group_by(date_time) |> 
+  summarize(mean_thickness = mean(z_water_m, na.rm = T))
+
+summary(ice_thick$mean_thickness)
+
+# plot modeled ice thickness against the measured thickness
+ggplot() + 
+  geom_line(data = GEE_corrected, aes(x = time, y = thickness), linewidth = 1.25) + 
+  geom_point(data = ice_thick, aes(x = date_time, y = mean_thickness), color = "red") +
+  xlab("Time") + ylab("Ice Thickness (m)") + 
+  ggtitle("East Lake Bonney Ice Thickness", 
+          subtitle = "modeled vs. measured") +
+  theme_linedraw(base_size = 20)
+
+#ggsave("plots/manuscript/chapter 2/measured_vs_modeled.png", 
+#       dpi = 300, height = 8, width = 12)
+
+# sum model output to a daily average, to compare to measured ice thickness
+# goal here is to see how large the gap is between modeled data and measured data 
+modeled_daily <- GEE_corrected |> 
+  mutate(time = ymd_hms(time), 
+         date_time = date(time)) |> 
+  group_by(date_time) |> 
+  summarize(modeled_thickness = mean(thickness)) 
+
+
+### join two datasets together to compare dates
+comp <- ice_thick |> 
+  left_join(modeled_daily, by = join_by(date_time)) |> 
+  group_by(date_time) |> 
+  mutate(difference = modeled_thickness - mean_thickness)
+
+# different summary breakdowns
+summary(comp$mean_thickness)
+summary(comp$modeled_thickness)
+summary(comp$difference)
+
+#plot modeled and measured against each other
+ggplot(comp, aes(mean_thickness, modeled_thickness)) + 
+  geom_point(size = 2.5, shape = 1) + 
+  geom_abline(size = 1.5) + 
+  xlab("Measured Ice Thickness") + ylab("Modeled Ice Thickness") + 
+  theme_linedraw(base_size = 20)
+
+linear_model = lm(modeled_thickness ~mean_thickness, data = comp)
+
+summary(linear_model)
+
+thickness_pivot <- comp |> 
+  pivot_longer(cols = c(modeled_thickness, mean_thickness), 
+               names_to = "measurement_type", values_to = "thickness") |> 
+  select(date_time, measurement_type, thickness)
 
 
