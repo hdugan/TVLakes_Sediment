@@ -7,6 +7,7 @@ library(tidyverse)
 library(lubridate)
 library(stars)
 
+# change this directory to where you store landsat RGB outputs
 setwd("~/Google Drive/My Drive/EarthEngine/landsat/RGB_images")
 files <- list.files(pattern = ".tif")
 

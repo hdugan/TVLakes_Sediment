@@ -1,17 +1,17 @@
-###### Kayla Lidar Helper Script ######### 
+########################## Wind Direction against DEM ########################## 
+
 # load libraries 
 library(terra) 
-
 library(tidyverse) 
 library(viridis)
 
 # Load Wind Data from Lake Bonney and Lake Hoare 
-
 BOYM <- read_csv("~/Google Drive/My Drive/MCMLTER_Met/met stations/mcmlter-clim_boym_15min-20250205.csv") |> 
   mutate(date_time = ymd_hms(date_time), 
          timestamp = as.POSIXct(date_time, tz = "Antarctica/McMurdo"))
 
 #filter wind data down to March 18, 2022 and April 22, 2020 and April 15, 2020
+##########################  plot wind events of known sediment deposition ########################## 
 wind_data <- BOYM %>%
   dplyr::select(timestamp, wspd_ms, wspdmax_ms, wdir_deg) %>% 
   mutate(wdir_deg = wdir_deg/10) %>% 
@@ -54,11 +54,8 @@ ggplot(wind_data, aes(x = timestamp)) +
     legend.position = "bottom"  # Adjust legend placement
   )
 
-
-##setwd("~/Documents/R-Repositories/MCM-LTER-MS")
-#ggsave("plots/manuscript/chapter 1/wind_events_wdir_wspd.png", 
-    #   width = 16, height = 8, dpi = 300)
-
+########################## Wind DEM Part ########################## 
+# change this directory to where you are storing Met Data
 setwd("~/Google Drive/My Drive/MCMLTER_Met") 
 # load files 
 DEM <- rast("output_be.tif") 
@@ -84,16 +81,11 @@ calc_wind_alignment_with_slope <- function(wind_dir, aspect_raster, slope_raster
   
   # Compute wind alignment: cos(wind_direction - aspect)
   alignment <- cos((aspect_raster - wind_dir_rast) * pi / 180)
-  #alignment <- aspect_raster-wind_dir_rast
   
-  # Filter: Keep values where alignment > 0.5, set others to NA
-  
-  #slope_corr = slope_raster / 90
   
   # Weight alignment by slope: Multiply alignment by slope values
   entrainment_likelihood <- alignment * slope
   
-  #entrainment_likelihood[entrainment_likelihood <= 0.00] <- NA  
   
   return(entrainment_likelihood)
 }
@@ -127,29 +119,13 @@ plot_wind_alignment_with_slope <- function(wind_dir, aspect, slope, lake_point, 
 }
 
 
+# plot alignment plots for different wind directions
 plot_wind_alignment_with_slope(50, aspect, slope, lake_point, "50-degree wind" )
 
 plot_wind_alignment_with_slope(250, aspect, slope, lake_point, "250-degree wind")
 
 plot_wind_alignment_with_slope(300, aspect, slope, lake_point, "300-degree wind")
 
-# sanity checks
-plot_wind_alignment_with_slope(360, aspect, slope, lake_point, "360 Degrees")
-
-plot_wind_alignment_with_slope(180, aspect, slope, lake_point, "180 Degrees")
-
-
-# for simplicity of the figure, create different functions that filter out the half of the image that don't matter for the point for each 
-# wind direction
-
-
-library(ggpubr)
-
-ggarrange(seventy, two50)
-
-# what directions of wind are dominant at ELB? 
-
-summary(BOYM$wdir_deg)
 
 
 

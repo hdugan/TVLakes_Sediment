@@ -1,11 +1,10 @@
-
-
-####### updated version of script using extract function: 
+########################## 
 ## libraries
 library(raster)
 library(sf)
 library(tidyverse)
 
+# change to your work directory
 setwd("~charliedougherty")
 
 files <- list.files(path = "~/Google Drive/My Drive/EarthEngine/landsat/20250325", pattern = ".tif", full.names = TRUE)
@@ -83,7 +82,8 @@ output_for_save <- output |>
          sediment_abundance = 1-sediment) |> 
   drop_na()
 
-write_csv(output_for_save, "Documents/R-Repositories/MCM-LTER-MS/data/sediment abundance data/LANDSAT_wholelake_mean_20250403.csv")
+Save output
+#write_csv(output_for_save, "")
 
 # Plot results
 ggplot(output_for_save, aes(date, sediment_abundance)) + 

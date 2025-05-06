@@ -1,14 +1,8 @@
 ####### TV Lakes HotSpot Analysis #####
-
-# idea one, persistence. 
-# create a raster stack of all images (start with Bonney)
-# and make sure all cells align (I think this should be fine to start with)
-# take a mean value of each cell, and plot that. The mean value gives you an i
-# idea of the average sediment cover through time 
+# goal of script is to 
 # library
 library(terra)
 library(tidyverse)
-#library(raster)
 library(sf)
 library(ggpubr)
 library(ggspatial)
@@ -16,12 +10,13 @@ library(ggspatial)
 setwd("~charliedougherty")
 
 # Set the directory containing .tif files
+# change to your output directory with satellite outputs
+
+########################## BONNEY ########################## 
 tif_dir <- "Google Drive/My Drive/EarthEngine/landsat/20250325"
 
 # Get list of all .tif files in the directory
 tif_files <- list.files(tif_dir, pattern = "LANDSAT_BON.*\\.tif$", full.names = TRUE)
-
-#tif_files = tif_files[tif_files != 'Google Drive/My Drive/EarthEngine/landsat/20250308/LANDSAT_BON_unmix_mar01_2016-12-13.tif']
 
 # Load only the first band of each raster
 raster_stack <- rast(lapply(tif_files, function(f) rast(f)[[1]]))  # Adjust `[[1]]` to desired band index
@@ -62,7 +57,7 @@ ggsave("plots/hotspot/lk_bonney_hotspot.png",
        plot = bonney,
        dpi = 400, width = 8, height = 8)
 
-###### HOARE 
+########################## HOARE ########################## 
 
 setwd("~charliedougherty")
 
@@ -108,7 +103,7 @@ ggsave("plots/hotspot/lk_hoare_hotspot.png",
        dpi = 700)
 
 
-###### Fryxell
+########################## FRYXELL ########################## 
 
 setwd("~charliedougherty")
 

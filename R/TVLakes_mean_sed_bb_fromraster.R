@@ -3,6 +3,9 @@ library(raster)
 library(sf)
 library(tidyverse)
 
+########################## For a single buffer distance ########################## 
+
+# change to whatever your machine is
 setwd("~charliedougherty")
 
 files <- list.files(path = "~/Google Drive/My Drive/EarthEngine/landsat/panchromatic", pattern = ".tif", full.names = TRUE)
@@ -27,7 +30,8 @@ points_df <- data.frame(
 
 # Convert to sf object and buffer
 points_sf <- st_as_sf(points_df, coords = c("x", "y"), crs = 3031)  
-# Buffer after ensuring the correct CRS
+
+# Buffer after ensuring the correct CRS. buffer distance is in meters
 buffered_points_sf <- st_buffer(points_sf, dist = 300)
 
 # Convert `sf` buffer object to `Spatial` before using extract()
@@ -56,20 +60,16 @@ for (i in seq_along(files)) {
   print(i)  # Keep track of progress
 }
 
-setwd("~/Documents/R-Repositories/MCM-LTER-MS")
+
+setwd("~/Documents/R-Repositories/TVLakes_Sediment")
 
 # Transform and save output
 output_to_save <- output |> 
   pivot_longer(cols = c(`East Lake Bonney`, `Lake Hoare`, `Lake Fryxell`, `West Lake Bonney`), names_to = "lake", values_to = "sediment") |>
   drop_na() |> 
   mutate(date = ymd(date),
-         sediment_corrected = (sediment - 0.15) / 0.75,
-         #ice_abundance = sediment, 
-         #sediment_abundance = 1-sediment
          ) |> 
   drop_na()
-
-write_csv(output_to_save, "data/sediment abundance data/LANDSAT_panchromatic.csv")
 
 # Plot results
 ggplot(output_to_save, aes(date, sediment_corrected)) + 
@@ -85,7 +85,7 @@ ggplot(output_to_save, aes(date, ice_abundance)) +
   theme_minimal()
 
 
-### longer script to make different buffer distances
+########################## for multiple buffer distances ########################## 
 
 library(sf)
 library(raster)
@@ -108,8 +108,6 @@ points_df <- data.frame(
 
 # Convert to sf object and buffer
 points_sf <- st_as_sf(points_df, coords = c("x", "y"), crs = 3031)  
-# Buffer after ensuring the correct CRS
-#buffered_points_sf <- st_buffer(points_sf, dist = 150)
 
 setwd("~charliedougherty")
 
@@ -118,10 +116,7 @@ buffer_distances <- c(50, 100, 150, 200, 300, 400, 500)  # Modify distances as n
 #buffer_distances = 100
 # Convert to sf object and buffer
 points_sf <- st_as_sf(points_df, coords = c("x", "y"), crs = 3031)  
-# Buffer after ensuring the correct CRS
-#buffered_points_sf <- st_buffer(points_sf, dist = 150)
-# Convert `sf` buffer object to `Spatial` before using extract()
-#buffered_points_sp <- as(buffered_points_sf, "Spatial")  
+
 
 # Convert points to sf object
 points_sf <- st_as_sf(points_df, coords = c("x", "y"), crs = 3031)
@@ -157,6 +152,8 @@ for (buffer_dist in buffer_distances) {
     print(paste("Processed file", i, "for buffer", buffer_dist))
   }
 }
+
+########################## do a little plotting of different buffer distances ########################## 
 
 # define function for seasons
 ## Define a season function to plot data by season. Makes data viz a lot easier. 
@@ -201,9 +198,6 @@ ggplot(buffer_plot, aes(date, (1-sediment)*100, color = buffer_distance)) +
   xlab("Date") + ylab("Sediment Coverage (%)") + 
   theme_linedraw(base_size = 20) 
 
-ggsave("~/Documents/R-Repositories/MCM-LTER-MS/plots/manuscript/chapter 1/comparison_of_buffer_sizes.png", 
-       height = 8, width = 12, dpi = 300)
-
 buffer_pivoted = buffer_plot |> 
   pivot_wider(names_from = buffer_distance, values_from = sediment)
 
@@ -211,9 +205,5 @@ buffer_pivoted = buffer_plot |>
 ggplot(buffer_pivoted, aes(`150`, `300`)) + 
   geom_point() + 
   facet_wrap(vars(lake), scales = "free")
-
-
-write_csv(buffer_plot, "~/Documents/R-Repositories/MCM-LTER-MS/data/sediment abundance data/LANDSAT_multiplebuffers_20250409.csv")
-
 
 
