@@ -15,8 +15,11 @@ In terms of use scripts:
 R: 
 
 _hotspot_analysis.R_ <- this recreates hotspot plots of sediment coverage over TV Lakes
+
 _ice_drop_compared_to_sed.R_ <- this recreates the comparison plot of drop in ice vs. previous years sediment cover
-_ice_thickness_model_east_lake_bonney.R_ <- Ice thickness model (using heat equation) of ELB. Very long script, requires download of LTER met data. 
+
+_ice_thickness_model_east_lake_bonney.R_ <- Ice thickness model (using heat equation) of ELB. Very long script, requires download of LTER met data.
+
 _Surface_sediment_data_munging.R_ <- this contains scripts to recreate the majority of plots in Chapter 1 of my thesis. 
 _TVLakes_mean_sed_bb_fromraster.R_ <- This allows you to grab a mean sediment cover value from the GEE outputs at a single buffer distance or multiple distances. 
 _TVLakes_RGB_plotting_separate_lakes.R_ <- allows you to plot RGB images of Landsat 8 images. 
