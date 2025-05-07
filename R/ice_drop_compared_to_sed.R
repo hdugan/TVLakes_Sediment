@@ -3,7 +3,7 @@ library(broom)
 library(purrr)
 
 # Read in CD GEE sed data
-sed = read_csv('~/Documents/R-Repositories/MCM-LTER-MS/data/sediment abundance data/LANDSAT_sediment_abundances_20250403.csv') |> 
+sed = read_csv("TVLakes_Sediment/Data/sediment abundance data/LANDSAT_sediment_abundances_20250403.csv') |> 
   mutate(wateryear = if_else(month(date) >= 10, year(date) + 1, year(date))) 
 
 # Plot sed by month and lake
