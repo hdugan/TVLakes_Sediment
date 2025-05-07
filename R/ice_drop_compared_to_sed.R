@@ -2,8 +2,11 @@ library(tidyverse)
 library(broom)
 library(purrr)
 
+## Authors
+# Hilary Dugan, Charlie Dougherty
+
 # Read in CD GEE sed data
-sed = read_csv("TVLakes_Sediment/Data/sediment abundance data/LANDSAT_sediment_abundances_20250403.csv') |> 
+sed = read_csv("~/Documents/R-Repositories/TVLakes_Sediment/Data/LANDSAT_sediment_abundances_20250403.csv") |> 
   mutate(wateryear = if_else(month(date) >= 10, year(date) + 1, year(date))) 
 
 # Plot sed by month and lake
@@ -18,7 +21,7 @@ sed2 = sed |>
   summarise(sed = mean(sediment_abundance, na.rm = T))
 
 # Read in ice thickness data from MCM database 
-ice = read_csv('~/Documents/R-Repositories/MCM-LTER-MS/data/lake ice/mcmlter-lake-ice_thickness-20250218_0_2025.csv') |> 
+ice = read_csv('~/Documents/R-Repositories/TVLakes_Sediment/Data/mcmlter-lake-ice_thickness-20250218_0_2025.csv') |> 
   mutate(date_time = as.Date(mdy_hm(date_time))) |> 
   rename(lake = location_name) |> 
   filter(lake %in% c('East Lake Bonney', 'West Lake Bonney', 
@@ -55,8 +58,6 @@ ggplot(sed.join) +
   facet_wrap(~lake, scales = "free_x") +
   theme_linedraw(base_size = 28)
 
-ggsave("~/Documents/R-Repositories/MCM-LTER-MS/plots/manuscript/chapter 1/ice_thickness_between_years_20250416.png", 
-       height = 8, width = 10, dpi = 500)
 
 # None of these are significant, but linear models aren't very robust with only 6 values 
 sed.join |> group_by(lake) %>%

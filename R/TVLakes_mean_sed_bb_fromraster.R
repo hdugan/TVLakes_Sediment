@@ -8,6 +8,7 @@ library(tidyverse)
 # change to whatever your machine is
 setwd("~charliedougherty")
 
+#replace with your google drive outputs of the GEE side of the script. 
 files <- list.files(path = "~/Google Drive/My Drive/EarthEngine/landsat/panchromatic", pattern = ".tif", full.names = TRUE)
 
 setwd("~/Google Drive/My Drive/EarthEngine/landsat/panchromatic")
