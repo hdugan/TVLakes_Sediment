@@ -22,7 +22,9 @@ _ice_thickness_model_east_lake_bonney.R_ <- Ice thickness model (using heat equa
 
 _Surface_sediment_data_munging.R_ <- this contains scripts to recreate the majority of plots in Chapter 1 of my thesis. 
 _TVLakes_mean_sed_bb_fromraster.R_ <- This allows you to grab a mean sediment cover value from the GEE outputs at a single buffer distance or multiple distances. 
-_TVLakes_RGB_plotting_separate_lakes.R_ <- allows you to plot RGB images of Landsat 8 images. 
+
+_TVLakes_RGB_plotting_separate_lakes.R_ <- allows you to plot RGB images of Landsat 8 images.
+
 _Wind_DEM_for_Aeolian.R_ <- allows you to compare the alignment of a slope with wind for aeolian entrainment. Requires download of DEM of Taylor Valley. 
 
 Python: 
