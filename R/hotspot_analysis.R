@@ -1,5 +1,6 @@
 ####### TV Lakes HotSpot Analysis #####
-# goal of script is to 
+# goal of script is to create hotspot maps of the TV Lakes. You will need to run the SMA scripts in the Python folder
+# first before running this, so the script has tif files in Google Drive to use. 
 # library
 library(terra)
 library(tidyverse)

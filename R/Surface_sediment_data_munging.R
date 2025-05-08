@@ -3,7 +3,7 @@ library(tidyverse)
 library(RColorBrewer)
 library(scales)
 
-setwd("~/Documents/R-Repositories/MCM-LTER-MS")
+setwd("~/Documents/R-Repositories/TVLakes_Sediment")
 
 ## Define a season function to plot data by season. Makes data viz a lot easier. 
 get_season <- function(date) {
@@ -31,7 +31,7 @@ get_season <- function(date) {
   }
 }
 
-mean_BB <- read_csv("data/sediment abundance data/LANDSAT_sediment_abundances_20250403.csv") |> 
+mean_BB <- read_csv("Data/LANDSAT_sediment_abundances_20250403.csv") |> 
   mutate(date = ymd(date), 
          type = 'lake_monitoring_station', 
          season = sapply(date, get_season), 
