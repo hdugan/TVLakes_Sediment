@@ -161,14 +161,12 @@ lakeice1 <- read_csv("Data/mcmlter-lake-ice_thickness-20250218_0_2025.csv") |>
   filter(!grepl("^B", location))
 
 ggplot(lakeice1, aes(date_time, z_water_m)) + 
-  geom_point(size = 4) + 
+  geom_point(size = 2.0) + 
   geom_smooth(se = T) + 
   facet_wrap(vars(lake)) + 
-  theme_linedraw(base_size = 28) + 
+  theme_linedraw(base_size = 20) + 
   #scale_color_brewer(palette = "Set1") +
-  xlab("Date") + ylab("Ice Thickness (m)") + 
-  ggtitle("Ice thickness (m) 1989-2024", 
-          subtitle = "ice to water measurement")
+  xlab("Date") + ylab("Ice Thickness (m)")
 
 ggsave("plots/MCM_LTER_ice_thickness_total_years.png", dpi = 700, 
        height = 8, width = 12)
