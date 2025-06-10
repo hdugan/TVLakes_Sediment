@@ -125,31 +125,32 @@ for (i in seq_along(files)) {
 
 
 ######## plotting for comparison figure in manuscript; SMA vs RGB
+# Lake Fryxell
 library(ggpubr)
 
 # load files as raster
-raster_SMA = rast("LANDSAT_FRY_unmix_mar25_2019-11-06.tif")
-raster_RGB = rast("../RGB_images/LANDSAT_FRY_RGB_mar07_2019-11-06.tif")
+FRY_raster_SMA = rast("LANDSAT_FRY_unmix_mar25_2019-11-06.tif")
+FRY_raster_RGB = rast("../RGB_images/LANDSAT_FRY_RGB_mar07_2019-11-06.tif")
 
 #reproject files for correct orientation
-project_SMA <- project(raster_SMA, "EPSG:32758")
+FRY_project_SMA <- project(FRY_raster_SMA, "EPSG:32758")
 
-project_RGB <- project(raster_RGB, "EPSG:32758")
+FRY_project_RGB <- project(FRY_raster_RGB, "EPSG:32758")
 
 # convert to dataframe in order to plot with ggplot
-raster_SMA_df = as.data.frame(project_SMA, xy = TRUE) |> 
+FRY_raster_SMA_df = as.data.frame(FRY_project_SMA, xy = TRUE) |> 
   drop_na() |> 
   mutate(sediment_coverage = (1 - ice_endmember))
 
-raster_RGB_df = as.data.frame(project_RGB, xy = TRUE) |> 
+FRY_raster_RGB_df = as.data.frame(FRY_project_RGB, xy = TRUE) |> 
   mutate(
     B4 = scales::rescale(B4, to = c(0, 1)),
     B3 = scales::rescale(B3, to = c(0, 1)),
     B2 = scales::rescale(B2, to = c(0, 1))
   )
 
-plot_SMA = ggplot() +
-  geom_raster(data = raster_SMA_df, aes(x = x, y = y, fill = sediment_coverage)) +
+FRY_plot_SMA = ggplot() +
+  geom_raster(data = FRY_raster_SMA_df, aes(x = x, y = y, fill = sediment_coverage)) +
   coord_sf(crs = sf::st_crs(32758), datum = sf::st_crs(32758)) +
   scale_fill_gradientn(colors = met_palette) +
   labs(title = paste0("2019-11-06"), x = "Easting", y = "Northing") +
@@ -159,7 +160,7 @@ plot_SMA = ggplot() +
   theme_linedraw() + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-plot_RGB = ggplot(raster_RGB_df, aes(x = x, y = y)) +
+FRY_plot_RGB = ggplot(raster_RGB_df, aes(x = x, y = y)) +
   geom_raster(aes(fill = rgb(B4, B3, B2))) +
   scale_fill_identity() +
   labs(title = paste0(""), x = "Easting", y = "Northing") +
@@ -170,6 +171,100 @@ plot_RGB = ggplot(raster_RGB_df, aes(x = x, y = y)) +
   theme_linedraw(base_size = 15) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggarrange(plot_SMA, plot_RGB)
+ggarrange(FRY_plot_SMA, FRY_plot_RGB)
 
+
+# Lake Hoare
+
+# load files as raster
+HOA_raster_SMA = rast("LANDSAT_HOA_unmix_mar25_2020-12-24.tif")
+HOA_raster_RGB = rast("../RGB_images/LANDSAT_HOA_RGB_mar06_2020-12-24.tif")
+
+#reproject files for correct orientation
+HOA_project_SMA <- project(HOA_raster_SMA, "EPSG:32758")
+
+HOA_project_RGB <- project(HOA_raster_RGB, "EPSG:32758")
+
+# convert to dataframe in order to plot with ggplot
+HOA_raster_SMA_df = as.data.frame(HOA_project_SMA, xy = TRUE) |> 
+  drop_na() |> 
+  mutate(sediment_coverage = (1 - ice_endmember))
+
+HOA_raster_RGB_df = as.data.frame(HOA_project_RGB, xy = TRUE) |> 
+  mutate(
+    B4 = scales::rescale(B4, to = c(0, 1)),
+    B3 = scales::rescale(B3, to = c(0, 1)),
+    B2 = scales::rescale(B2, to = c(0, 1))
+  )
+
+HOA_plot_SMA = ggplot() +
+  geom_raster(data = HOA_raster_SMA_df, aes(x = x, y = y, fill = sediment_coverage)) +
+  coord_sf(crs = sf::st_crs(32758), datum = sf::st_crs(32758)) +
+  scale_fill_gradientn(colors = met_palette) +
+  labs(title = paste0("2023-01-10"), x = "Easting", y = "Northing") +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3) + 
+  theme_linedraw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+HOA_plot_RGB = ggplot(HOA_raster_RGB_df, aes(x = x, y = y)) +
+  geom_raster(aes(fill = rgb(B4, B3, B2))) +
+  scale_fill_identity() +
+  labs(title = paste0(""), x = "Easting", y = "Northing") +
+  coord_sf(crs = sf::st_crs(32758), datum = sf::st_crs(32758)) + 
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3) + 
+  theme_linedraw(base_size = 15) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggarrange(HOA_plot_SMA, HOA_plot_RGB)
+
+# Lake Bonney
+
+# load files as raster
+BON_raster_SMA = rast("LANDSAT_BON_unmix_mar25_2023-01-10.tif")
+BON_raster_RGB = rast("../RGB_images/LANDSAT_BON_RGB_mar06_2023-01-10.tif")
+
+#reproject files for correct orientation
+BON_project_SMA <- project(BON_raster_SMA, "EPSG:32758")
+
+BON_project_RGB <- project(BON_raster_RGB, "EPSG:32758")
+
+# convert to dataframe in order to plot with ggplot
+BON_raster_SMA_df = as.data.frame(BON_project_SMA, xy = TRUE) |> 
+  drop_na() |> 
+  mutate(sediment_coverage = (1 - ice_endmember))
+
+BON_raster_RGB_df = as.data.frame(BON_project_RGB, xy = TRUE) |> 
+  mutate(
+    B4 = scales::rescale(B4, to = c(0, 1)),
+    B3 = scales::rescale(B3, to = c(0, 1)),
+    B2 = scales::rescale(B2, to = c(0, 1))
+  )
+
+BON_plot_SMA = ggplot() +
+  geom_raster(data = BON_raster_SMA_df, aes(x = x, y = y, fill = sediment_coverage)) +
+  coord_sf(crs = sf::st_crs(32758), datum = sf::st_crs(32758)) +
+  scale_fill_gradientn(colors = met_palette) +
+  labs(title = paste0("2023-01-10"), x = "Easting", y = "Northing") +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3) + 
+  theme_linedraw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+BON_plot_RGB = ggplot(BON_raster_RGB_df, aes(x = x, y = y)) +
+  geom_raster(aes(fill = rgb(B4, B3, B2))) +
+  scale_fill_identity() +
+  labs(title = paste0(""), x = "Easting", y = "Northing") +
+  coord_sf(crs = sf::st_crs(32758), datum = sf::st_crs(32758)) + 
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3) + 
+  theme_linedraw(base_size = 15) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggarrange(BON_plot_SMA, BON_plot_RGB)
 
